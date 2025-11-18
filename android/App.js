@@ -1,0 +1,420 @@
+import React, { useState } from 'react';
+import {
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  ScrollView,
+  Image,
+  Alert,
+  ActivityIndicator,
+  Platform,
+  Linking,
+} from 'react-native';
+import axios from 'axios';
+import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import RNFS from 'react-native-fs';
+
+// Backend API URL - Değiştirmeniz gerekebilir
+// Web uygulamasının çalıştığı IP adresini buraya girin
+const API_URL = 'http://192.168.1.100:5000'; // Kendi IP adresinizi girin
+
+const App = () => {
+  const [activeTab, setActiveTab] = useState('link');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [videoInfo, setVideoInfo] = useState(null);
+  const [searchResults, setSearchResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const requestStoragePermission = async () => {
+    if (Platform.OS === 'android') {
+      const result = await request(PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE);
+      return result === RESULTS.GRANTED;
+    }
+    return true;
+  };
+
+  const getVideoInfo = async () => {
+    if (!videoUrl.trim()) {
+      Alert.alert('Hata', 'Lütfen bir YouTube URL\'si girin');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await axios.post(`${API_URL}/api/info`, {
+        url: videoUrl,
+      });
+
+      if (response.data.error) {
+        Alert.alert('Hata', response.data.error);
+      } else {
+        setVideoInfo(response.data);
+      }
+    } catch (error) {
+      Alert.alert('Hata', 'Video bilgileri alınamadı: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadVideo = async (format) => {
+    const url = videoUrl.trim();
+    if (!url) {
+      Alert.alert('Hata', 'Lütfen bir YouTube URL\'si girin');
+      return;
+    }
+
+    const hasPermission = await requestStoragePermission();
+    if (!hasPermission) {
+      Alert.alert('İzin Gerekli', 'Dosya indirmek için depolama izni gereklidir');
+      return;
+    }
+
+    setDownloading(true);
+    try {
+      const response = await axios.post(`${API_URL}/api/download`, {
+        url: url,
+        format: format,
+      });
+
+      if (response.data.success) {
+        // Dosyayı indir
+        const downloadUrl = `${API_URL}${response.data.download_url}`;
+        const downloadPath = `${RNFS.DownloadDirectoryPath}/${response.data.filename}`;
+
+        const downloadResult = await RNFS.downloadFile({
+          fromUrl: downloadUrl,
+          toFile: downloadPath,
+        }).promise;
+
+        if (downloadResult.statusCode === 200) {
+          Alert.alert('Başarılı', `${format === 'audio' ? 'Ses' : 'Video'} başarıyla indirildi!`);
+        } else {
+          Alert.alert('Hata', 'İndirme başarısız oldu');
+        }
+      } else {
+        Alert.alert('Hata', response.data.error || 'İndirme başarısız');
+      }
+    } catch (error) {
+      Alert.alert('Hata', 'İndirme sırasında bir hata oluştu: ' + error.message);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const searchVideos = async () => {
+    if (!searchQuery.trim()) {
+      Alert.alert('Hata', 'Lütfen bir arama terimi girin');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await axios.post(`${API_URL}/api/search`, {
+        query: searchQuery,
+        max_results: 20,
+      });
+
+      if (response.data.error) {
+        Alert.alert('Hata', response.data.error);
+      } else {
+        setSearchResults(response.data.results || []);
+      }
+    } catch (error) {
+      Alert.alert('Hata', 'Arama yapılamadı: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectVideo = (result) => {
+    setVideoUrl(result.url);
+    setActiveTab('link');
+    getVideoInfo();
+  };
+
+  const formatDuration = (seconds) => {
+    if (!seconds) return 'Bilinmiyor';
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>🎬 YouTube İndirici</Text>
+        <Text style={styles.headerSubtitle}>Video ve ses dosyalarınızı indirin</Text>
+      </View>
+
+      <View style={styles.tabs}>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'link' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('link')}
+        >
+          <Text style={[styles.tabButtonText, activeTab === 'link' && styles.tabButtonTextActive]}>
+            🔗 Link
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'search' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('search')}
+        >
+          <Text style={[styles.tabButtonText, activeTab === 'search' && styles.tabButtonTextActive]}>
+            🔍 Arama
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView style={styles.content}>
+        {activeTab === 'link' && (
+          <View style={styles.tabContent}>
+            <Text style={styles.label}>YouTube Video URL'si</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="https://www.youtube.com/watch?v=..."
+              value={videoUrl}
+              onChangeText={setVideoUrl}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <TouchableOpacity
+              style={[styles.button, styles.buttonPrimary]}
+              onPress={getVideoInfo}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Video Bilgilerini Getir</Text>
+              )}
+            </TouchableOpacity>
+
+            {videoInfo && !videoInfo.error && (
+              <View style={styles.videoInfo}>
+                {videoInfo.thumbnail && (
+                  <Image source={{ uri: videoInfo.thumbnail }} style={styles.thumbnail} />
+                )}
+                <Text style={styles.videoTitle}>{videoInfo.title}</Text>
+                <Text style={styles.videoDetail}>Kanal: {videoInfo.uploader}</Text>
+                <Text style={styles.videoDetail}>Süre: {formatDuration(videoInfo.duration)}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[styles.button, styles.buttonSecondary, downloading && styles.buttonDisabled]}
+              onPress={() => downloadVideo('video')}
+              disabled={downloading}
+            >
+              {downloading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>📹 Video İndir</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.button, styles.buttonSecondary, downloading && styles.buttonDisabled]}
+              onPress={() => downloadVideo('audio')}
+              disabled={downloading}
+            >
+              {downloading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>🎵 Ses İndir (MP3)</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {activeTab === 'search' && (
+          <View style={styles.tabContent}>
+            <Text style={styles.label}>Arama Terimi</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Aramak istediğiniz video..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onSubmitEditing={searchVideos}
+            />
+
+            <TouchableOpacity
+              style={[styles.button, styles.buttonPrimary]}
+              onPress={searchVideos}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>🔍 Ara</Text>
+              )}
+            </TouchableOpacity>
+
+            {searchResults.map((result, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.resultCard}
+                onPress={() => selectVideo(result)}
+              >
+                <Image source={{ uri: result.thumbnail }} style={styles.resultThumbnail} />
+                <View style={styles.resultContent}>
+                  <Text style={styles.resultTitle} numberOfLines={2}>
+                    {result.title}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#667eea',
+  },
+  header: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 5,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#fff',
+    opacity: 0.9,
+  },
+  tabs: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  tabButton: {
+    flex: 1,
+    padding: 12,
+    marginHorizontal: 5,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+  },
+  tabButtonActive: {
+    backgroundColor: '#fff',
+  },
+  tabButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  tabButtonTextActive: {
+    color: '#667eea',
+  },
+  content: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  tabContent: {
+    padding: 20,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 15,
+  },
+  button: {
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  buttonPrimary: {
+    backgroundColor: '#667eea',
+  },
+  buttonSecondary: {
+    backgroundColor: '#764ba2',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  videoInfo: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
+  },
+  thumbnail: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  videoTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  videoDetail: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  resultCard: {
+    flexDirection: 'row',
+    backgroundColor: '#f9f9f9',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 10,
+  },
+  resultThumbnail: {
+    width: 120,
+    height: 90,
+    borderRadius: 8,
+    marginRight: 10,
+  },
+  resultContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  resultTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+});
+
+export default App;
+
