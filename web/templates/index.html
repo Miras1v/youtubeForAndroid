@@ -174,6 +174,96 @@
             border-color: #8b7cf6;
         }
 
+        .input-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 16px;
+            background: var(--input-bg);
+            color: var(--text-primary);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .input-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        [data-theme="dark"] .input-group select:focus {
+            border-color: #8b7cf6;
+        }
+
+        .format-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .download-type-toggle {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: var(--video-info-bg);
+            padding: 5px;
+            border-radius: 12px;
+        }
+
+        .download-type-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .download-type-btn.active {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .download-options-container {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: var(--video-info-bg);
+            border-radius: 12px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .download-options-container.active {
+            display: block;
+        }
+
+        .download-options-panel {
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .format-options {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .button-group {
             display: flex;
             gap: 10px;
@@ -376,8 +466,67 @@
 
                 <div class="button-group">
                     <button class="btn btn-primary" onclick="getVideoInfo()">Video Bilgilerini Getir</button>
-                    <button class="btn btn-secondary" onclick="downloadVideo('video')">📹 Video İndir</button>
-                    <button class="btn btn-secondary" onclick="downloadVideo('audio')">🎵 Ses İndir (MP3)</button>
+                </div>
+
+                <!-- İndirme Seçenekleri Container -->
+                <div id="download-options-container" class="download-options-container">
+                    <div class="download-type-toggle">
+                        <button class="download-type-btn active" id="video-type-btn" onclick="switchDownloadType('video')">
+                            📹 Video
+                        </button>
+                        <button class="download-type-btn" id="audio-type-btn" onclick="switchDownloadType('audio')">
+                            🎵 Ses
+                        </button>
+                    </div>
+
+                    <!-- Video İndirme Seçenekleri -->
+                    <div id="video-options" class="download-options-panel">
+                        <h3 style="margin-bottom: 15px; color: var(--text-primary);">📹 Video İndirme Ayarları</h3>
+                        <div class="format-options">
+                            <div class="input-group">
+                                <label for="video-format">Format</label>
+                                <select id="video-format">
+                                    <option value="mp4">MP4</option>
+                                    <option value="mkv">MKV</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="video-quality">Kalite</label>
+                                <select id="video-quality">
+                                    <!-- JavaScript ile dinamik olarak doldurulacak -->
+                                </select>
+                            </div>
+                        </div>
+                        <button class="btn btn-secondary" onclick="downloadVideo('video')" style="width: 100%; margin-top: 10px;">
+                            📹 Video İndir
+                        </button>
+                    </div>
+
+                    <!-- Ses İndirme Seçenekleri -->
+                    <div id="audio-options" class="download-options-panel" style="display: none;">
+                        <h3 style="margin-bottom: 15px; color: var(--text-primary);">🎵 Ses İndirme Ayarları</h3>
+                        <div class="format-options">
+                            <div class="input-group">
+                                <label for="audio-format">Format</label>
+                                <select id="audio-format">
+                                    <option value="wav" selected>WAV</option>
+                                    <option value="mp3">MP3</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="audio-quality">Kalite (kbps)</label>
+                                <select id="audio-quality">
+                                    <option value="320">320 kbps (En İyi)</option>
+                                    <option value="256">256 kbps</option>
+                                    <option value="192">192 kbps</option>
+                                    <option value="128">128 kbps</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="btn btn-secondary" onclick="downloadVideo('audio')" style="width: 100%; margin-top: 10px;">
+                            🎵 Ses İndir
+                        </button>
+                    </div>
                 </div>
 
                 <div class="loading" id="link-loading">Yükleniyor...</div>
@@ -439,6 +588,66 @@
         // Sayfa yüklendiğinde temayı yükle
         initTheme();
 
+        // İndirme tipi değiştirme
+        function switchDownloadType(type) {
+            const videoBtn = document.getElementById('video-type-btn');
+            const audioBtn = document.getElementById('audio-type-btn');
+            const videoOptions = document.getElementById('video-options');
+            const audioOptions = document.getElementById('audio-options');
+
+            if (type === 'video') {
+                videoBtn.classList.add('active');
+                audioBtn.classList.remove('active');
+                videoOptions.style.display = 'block';
+                audioOptions.style.display = 'none';
+            } else {
+                audioBtn.classList.add('active');
+                videoBtn.classList.remove('active');
+                audioOptions.style.display = 'block';
+                videoOptions.style.display = 'none';
+            }
+        }
+
+        // Video kalite seçeneklerini dinamik olarak oluştur
+        function populateVideoQualities(maxQuality, maxHeight) {
+            const qualitySelect = document.getElementById('video-quality');
+            qualitySelect.innerHTML = '';
+
+            const qualities = [
+                { value: 'best', label: 'En İyi (Otomatik)' },
+                { value: '2160p', label: '2160p (4K)', height: 2160 },
+                { value: '1440p', label: '1440p (2K)', height: 1440 },
+                { value: '1080p', label: '1080p (Full HD)', height: 1080 },
+                { value: '720p', label: '720p (HD)', height: 720 },
+                { value: '480p', label: '480p', height: 480 },
+                { value: '360p', label: '360p', height: 360 },
+                { value: '240p', label: '240p', height: 240 },
+                { value: '144p', label: '144p', height: 144 }
+            ];
+
+            qualities.forEach(quality => {
+                const option = document.createElement('option');
+                option.value = quality.value;
+                
+                if (quality.value === 'best') {
+                    option.textContent = quality.label;
+                    option.selected = true;
+                } else if (quality.height && quality.height <= maxHeight) {
+                    option.textContent = quality.label;
+                    if (quality.value === maxQuality) {
+                        option.selected = true;
+                    }
+                } else if (quality.height) {
+                    option.textContent = quality.label + ' (Desteklenmiyor)';
+                    option.disabled = true;
+                } else {
+                    option.textContent = quality.label;
+                }
+                
+                qualitySelect.appendChild(option);
+            });
+        }
+
         function switchTab(tab) {
             // Tüm sekmeleri gizle
             document.querySelectorAll('.tab-content').forEach(content => {
@@ -484,6 +693,15 @@
                     document.getElementById('video-uploader').textContent = 'Kanal: ' + data.uploader;
                     document.getElementById('video-duration').textContent = 'Süre: ' + formatDuration(data.duration);
                     document.getElementById('video-info').classList.add('active');
+                    
+                    // Maksimum kaliteyi kullanarak video kalite seçeneklerini doldur
+                    const maxQuality = data.max_quality || 'best';
+                    const maxHeight = data.max_height || 1080;
+                    populateVideoQualities(maxQuality, maxHeight);
+                    
+                    // İndirme seçeneklerini göster
+                    document.getElementById('download-options-container').classList.add('active');
+                    switchDownloadType('video'); // Varsayılan olarak video seçili
                 }
             } catch (error) {
                 showError('link-error', 'Bir hata oluştu: ' + error.message);
@@ -499,6 +717,16 @@
                 return;
             }
 
+            // Format ve kalite seçeneklerini al
+            let fileFormat, quality;
+            if (format === 'audio') {
+                fileFormat = document.getElementById('audio-format').value;
+                quality = document.getElementById('audio-quality').value;
+            } else {
+                fileFormat = document.getElementById('video-format').value;
+                quality = document.getElementById('video-quality').value;
+            }
+
             showLoading('link-loading', true);
             hideError('link-error');
             hideSuccess('link-success');
@@ -509,13 +737,24 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ url: url, format: format })
+                    body: JSON.stringify({ 
+                        url: url, 
+                        format: format,
+                        file_format: fileFormat,
+                        quality: quality
+                    })
                 });
 
                 const data = await response.json();
 
                 if (data.success) {
-                    showSuccess('link-success', `${format === 'audio' ? 'Ses' : 'Video'} indiriliyor: ${data.title}`);
+                    let formatText;
+                    if (format === 'audio') {
+                        formatText = `Ses (${fileFormat.toUpperCase()}, ${quality} kbps)`;
+                    } else {
+                        formatText = `Video (${fileFormat.toUpperCase()}, ${quality === 'best' ? 'En İyi' : quality})`;
+                    }
+                    showSuccess('link-success', `${formatText} indiriliyor: ${data.title}`);
                     // Dosyayı tarayıcının varsayılan indirme davranışıyla indir
                     const link = document.createElement('a');
                     link.href = data.download_url;

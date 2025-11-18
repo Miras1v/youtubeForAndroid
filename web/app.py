@@ -33,7 +33,7 @@ def extract_video_id(url):
 
 
 def get_video_info(url):
-    """Video bilgilerini alır"""
+    """Video bilgilerini alır ve maksimum kaliteyi tespit eder"""
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
@@ -41,36 +41,95 @@ def get_video_info(url):
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
+            
+            # Mevcut formatları analiz et ve maksimum kaliteyi bul
+            max_height = 0
+            available_qualities = set()
+            
+            if 'formats' in info:
+                for fmt in info['formats']:
+                    height = fmt.get('height')
+                    if height:
+                        available_qualities.add(height)
+                        if height > max_height:
+                            max_height = height
+            
+            # Maksimum kaliteyi belirle
+            max_quality = 'best'
+            quality_order = [2160, 1440, 1080, 720, 480, 360, 240, 144]
+            
+            for q in quality_order:
+                if q <= max_height:
+                    max_quality = f'{q}p'
+                    break
+            
+            # Eğer hiç kalite bulunamazsa varsayılan olarak 'best'
+            if max_height == 0:
+                max_quality = 'best'
+            
             return {
                 'title': info.get('title', 'Bilinmeyen'),
                 'thumbnail': info.get('thumbnail', ''),
                 'duration': info.get('duration', 0),
                 'uploader': info.get('uploader', ''),
                 'view_count': info.get('view_count', 0),
-                'formats': []
+                'max_quality': max_quality,
+                'max_height': max_height,
+                'available_qualities': sorted(list(available_qualities), reverse=True) if available_qualities else []
             }
     except Exception as e:
         return {'error': str(e)}
 
 
-def download_video(url, format_type='video'):
+def download_video(url, format_type='video', file_format='mp4', quality='best'):
     """Video veya ses indirir"""
     output_path = DOWNLOAD_DIR / '%(title)s.%(ext)s'
     
     if format_type == 'audio':
+        # Ses formatı ve kalite ayarları
+        audio_codec = file_format.lower()
+        quality_map = {
+            '128': '128',
+            '192': '192',
+            '256': '256',
+            '320': '320',
+            'best': '192'
+        }
+        audio_quality = quality_map.get(quality, '192')
+        
         ydl_opts = {
             'format': 'bestaudio/best',
             'outtmpl': str(output_path),
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
+                'preferredcodec': audio_codec,
+                'preferredquality': audio_quality,
             }],
         }
     else:
+        # Video formatı ve kalite ayarları
+        video_format = file_format.lower()
+        
+        # Kalite format string'leri - yt-dlp format seçimi
+        if quality == 'best':
+            format_string = 'bestvideo+bestaudio/best'
+        else:
+            # Kalite değerini sayıya çevir (örn: '1080p' -> 1080)
+            height = int(quality.replace('p', ''))
+            
+            if video_format == 'mp4':
+                # MP4 için: belirtilen kalitede video + en iyi ses
+                format_string = f'bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<={height}]+bestaudio/best[height<={height}][ext=mp4]/best[ext=mp4]/best'
+            elif video_format == 'mkv':
+                # MKV için: belirtilen kalitede video + en iyi ses
+                format_string = f'bestvideo[height<={height}]+bestaudio/best[height<={height}]/best'
+            else:
+                format_string = f'bestvideo[height<={height}]+bestaudio/best'
+        
         ydl_opts = {
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            'format': format_string,
             'outtmpl': str(output_path),
+            'merge_output_format': video_format,
         }
     
     try:
@@ -78,9 +137,17 @@ def download_video(url, format_type='video'):
             info = ydl.extract_info(url, download=True)
             filename = ydl.prepare_filename(info)
             
-            # Ses indiriyorsak .mp3 uzantısını ekle
+            # Format'a göre doğru uzantıyı ekle
             if format_type == 'audio':
-                filename = filename.rsplit('.', 1)[0] + '.mp3'
+                if file_format.lower() == 'wav':
+                    filename = filename.rsplit('.', 1)[0] + '.wav'
+                else:
+                    filename = filename.rsplit('.', 1)[0] + '.mp3'
+            else:
+                # Video formatına göre uzantıyı ayarla
+                video_ext = file_format.lower()
+                if not filename.endswith(f'.{video_ext}'):
+                    filename = filename.rsplit('.', 1)[0] + f'.{video_ext}'
             
             return {
                 'success': True,
@@ -173,11 +240,13 @@ def download():
     data = request.json
     url = data.get('url', '')
     format_type = data.get('format', 'video')  # 'video' veya 'audio'
+    file_format = data.get('file_format', 'mp4')  # 'mp4', 'mkv', 'mp3', 'wav'
+    quality = data.get('quality', 'best')  # Video: '144p', '720p', '1080p', vb. | Ses: '128', '192', '256', '320'
     
     if not url:
         return jsonify({'error': 'URL gerekli'}), 400
     
-    result = download_video(url, format_type)
+    result = download_video(url, format_type, file_format, quality)
     
     if result.get('success'):
         return jsonify({
