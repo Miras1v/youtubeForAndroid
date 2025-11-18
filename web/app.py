@@ -210,10 +210,23 @@ def search():
 
 @app.route('/api/file/<filename>')
 def download_file(filename):
-    """İndirilen dosyayı sunar"""
+    """İndirilen dosyayı sunar ve tarayıcıya gönderir"""
     filepath = DOWNLOAD_DIR / filename
     if filepath.exists():
-        return send_file(str(filepath), as_attachment=True)
+        # Dosyayı tarayıcıya gönder ve sonra sil
+        response = send_file(str(filepath), as_attachment=True, download_name=filename)
+        # Dosyayı arka planda sil (async olarak)
+        import threading
+        def delete_file():
+            import time
+            time.sleep(1)  # İndirme tamamlanması için bekle
+            try:
+                if filepath.exists():
+                    filepath.unlink()
+            except:
+                pass
+        threading.Thread(target=delete_file, daemon=True).start()
+        return response
     return jsonify({'error': 'Dosya bulunamadı'}), 404
 
 

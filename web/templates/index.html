@@ -5,6 +5,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YouTube İndirici</title>
     <style>
+        :root {
+            /* Açık Tema */
+            --bg-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --bg-card: #ffffff;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --text-white: #ffffff;
+            --border-color: #e0e0e0;
+            --input-bg: #ffffff;
+            --video-info-bg: #f5f5f5;
+            --result-card-bg: #f9f9f9;
+            --error-bg: #ffebee;
+            --error-text: #c62828;
+            --success-bg: #e8f5e9;
+            --success-text: #2e7d32;
+            --loading-color: #667eea;
+            --shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            --shadow-hover: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            /* Koyu Tema */
+            --bg-primary: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            --bg-card: #1e1e2e;
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --text-white: #ffffff;
+            --border-color: #3a3a4a;
+            --input-bg: #2a2a3a;
+            --video-info-bg: #252535;
+            --result-card-bg: #2a2a3a;
+            --error-bg: #3d1f1f;
+            --error-text: #ff6b6b;
+            --success-bg: #1f3d1f;
+            --success-text: #4caf50;
+            --loading-color: #8b7cf6;
+            --shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            --shadow-hover: 0 5px 20px rgba(0, 0, 0, 0.3);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,9 +53,10 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--bg-primary);
             min-height: 100vh;
             padding: 20px;
+            transition: background 0.3s ease;
         }
 
         .container {
@@ -25,8 +66,32 @@
 
         .header {
             text-align: center;
-            color: white;
+            color: var(--text-white);
             margin-bottom: 30px;
+            position: relative;
+        }
+
+        .theme-toggle {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            font-size: 24px;
+            color: var(--text-white);
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(20deg);
         }
 
         .header h1 {
@@ -46,16 +111,19 @@
             background: rgba(255, 255, 255, 0.2);
             border: none;
             border-radius: 8px;
-            color: white;
+            color: var(--text-white);
             cursor: pointer;
             font-size: 16px;
             transition: all 0.3s;
         }
 
         .tab-button.active {
-            background: white;
+            background: var(--text-white);
             color: #667eea;
-            font-weight: bold;
+        }
+
+        [data-theme="dark"] .tab-button.active {
+            color: #8b7cf6;
         }
 
         .tab-content {
@@ -67,11 +135,12 @@
         }
 
         .card {
-            background: white;
+            background: var(--bg-card);
             border-radius: 16px;
             padding: 30px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            box-shadow: var(--shadow);
             margin-bottom: 20px;
+            transition: all 0.3s ease;
         }
 
         .input-group {
@@ -81,22 +150,28 @@
         .input-group label {
             display: block;
             margin-bottom: 8px;
-            color: #333;
+            color: var(--text-primary);
             font-weight: 600;
         }
 
         .input-group input {
             width: 100%;
             padding: 12px;
-            border: 2px solid #e0e0e0;
+            border: 2px solid var(--border-color);
             border-radius: 8px;
             font-size: 16px;
-            transition: border-color 0.3s;
+            background: var(--input-bg);
+            color: var(--text-primary);
+            transition: all 0.3s;
         }
 
         .input-group input:focus {
             outline: none;
             border-color: #667eea;
+        }
+
+        [data-theme="dark"] .input-group input:focus {
+            border-color: #8b7cf6;
         }
 
         .button-group {
@@ -143,9 +218,10 @@
         .video-info {
             margin-top: 20px;
             padding: 20px;
-            background: #f5f5f5;
+            background: var(--video-info-bg);
             border-radius: 8px;
             display: none;
+            transition: all 0.3s ease;
         }
 
         .video-info.active {
@@ -160,11 +236,11 @@
 
         .video-info h3 {
             margin-bottom: 10px;
-            color: #333;
+            color: var(--text-primary);
         }
 
         .video-info p {
-            color: #666;
+            color: var(--text-secondary);
             margin-bottom: 5px;
         }
 
@@ -176,7 +252,7 @@
         }
 
         .result-card {
-            background: #f9f9f9;
+            background: var(--result-card-bg);
             border-radius: 12px;
             overflow: hidden;
             cursor: pointer;
@@ -185,7 +261,7 @@
 
         .result-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            box-shadow: var(--shadow-hover);
         }
 
         .result-card img {
@@ -200,7 +276,7 @@
 
         .result-card h4 {
             margin-bottom: 10px;
-            color: #333;
+            color: var(--text-primary);
             font-size: 14px;
             line-height: 1.4;
             display: -webkit-box;
@@ -212,7 +288,7 @@
         .loading {
             text-align: center;
             padding: 20px;
-            color: #667eea;
+            color: var(--loading-color);
             display: none;
         }
 
@@ -221,8 +297,8 @@
         }
 
         .error {
-            background: #ffebee;
-            color: #c62828;
+            background: var(--error-bg);
+            color: var(--error-text);
             padding: 15px;
             border-radius: 8px;
             margin-top: 15px;
@@ -234,8 +310,8 @@
         }
 
         .success {
-            background: #e8f5e9;
-            color: #2e7d32;
+            background: var(--success-bg);
+            color: var(--success-text);
             padding: 15px;
             border-radius: 8px;
             margin-top: 15px;
@@ -249,6 +325,12 @@
         @media (max-width: 768px) {
             .header h1 {
                 font-size: 1.8em;
+            }
+
+            .theme-toggle {
+                width: 40px;
+                height: 40px;
+                font-size: 20px;
             }
 
             .tabs {
@@ -272,6 +354,9 @@
 <body>
     <div class="container">
         <div class="header">
+            <button class="theme-toggle" onclick="toggleTheme()" title="Tema Değiştir">
+                <span id="theme-icon">🌙</span>
+            </button>
             <h1>🎬 YouTube İndirici</h1>
             <p>Video ve ses dosyalarınızı kolayca indirin</p>
         </div>
@@ -330,6 +415,29 @@
 
     <script>
         let currentVideoUrl = '';
+
+        // Tema yönetimi
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+
+        function updateThemeIcon(theme) {
+            const icon = document.getElementById('theme-icon');
+            icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+        }
+
+        // Sayfa yüklendiğinde temayı yükle
+        initTheme();
 
         function switchTab(tab) {
             // Tüm sekmeleri gizle
@@ -408,8 +516,13 @@
 
                 if (data.success) {
                     showSuccess('link-success', `${format === 'audio' ? 'Ses' : 'Video'} indiriliyor: ${data.title}`);
-                    // Dosyayı indir
-                    window.location.href = data.download_url;
+                    // Dosyayı tarayıcının varsayılan indirme davranışıyla indir
+                    const link = document.createElement('a');
+                    link.href = data.download_url;
+                    link.download = data.filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
                 } else {
                     showError('link-error', data.error || 'İndirme başarısız');
                 }
@@ -517,4 +630,3 @@
     </script>
 </body>
 </html>
-
